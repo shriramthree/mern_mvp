@@ -18,6 +18,7 @@ function App() {
   const [voiceError, setVoiceError] = useState("");
   const recognitionRef = useRef(null);
   const shouldKeepListeningRef = useRef(false);
+  const lastTranscriptRef = useRef("");
 
   // 🧠 SMART PROMPT GENERATOR (LONG OUTPUT)
   const generatePromptLocally = () => {
@@ -98,6 +99,7 @@ The final product should feel like a real-world application, polished, scalable,
     }
 
     shouldKeepListeningRef.current = true;
+    lastTranscriptRef.current = "";
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
     recognition.lang = speechLanguage;
@@ -113,8 +115,15 @@ The final product should feel like a real-world application, polished, scalable,
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const item = event.results[i];
         if (item.isFinal) {
-          const transcript = item[0]?.transcript?.trim();
-          if (transcript) finalChunks.push(transcript);
+          const alternative = item[0];
+          const transcript = alternative?.transcript?.trim();
+          const confidence = alternative?.confidence;
+          // Ignore weak recognition guesses when the browser exposes confidence.
+          if (!transcript || (typeof confidence === "number" && confidence > 0 && confidence < 0.65)) continue;
+          // Prevent an identical final phrase from being inserted twice after a restart.
+          if (transcript === lastTranscriptRef.current) continue;
+          lastTranscriptRef.current = transcript;
+          finalChunks.push(transcript);
         }
       }
       if (finalChunks.length) {
