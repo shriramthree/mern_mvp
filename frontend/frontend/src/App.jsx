@@ -18,6 +18,7 @@ function App() {
   const [voiceError, setVoiceError] = useState("");
   const recognitionRef = useRef(null);
   const shouldKeepListeningRef = useRef(false);
+  const lastTranscriptRef = useRef("");
 
   // 🧠 SMART PROMPT GENERATOR (LONG OUTPUT)
   const generatePromptLocally = () => {
@@ -98,17 +99,35 @@ The final product should feel like a real-world application, polished, scalable,
     }
 
     shouldKeepListeningRef.current = true;
+    lastTranscriptRef.current = "";
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
     recognition.lang = speechLanguage;
     // Continue listening across pauses until the user presses Stop.
     recognition.continuous = true;
-    recognition.interimResults = true;
+    // Only accept finalized speech results to avoid inserting unstable guesses.
+    recognition.interimResults = false;
 
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript?.trim();
-      if (transcript) {
+      // Process only new, final results. Never reuse results[0], which can be stale.
+      const finalChunks = [];
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const item = event.results[i];
+        if (item.isFinal) {
+          const alternative = item[0];
+          const transcript = alternative?.transcript?.trim();
+          const confidence = alternative?.confidence;
+          // Ignore weak recognition guesses when the browser exposes confidence.
+          if (!transcript || (typeof confidence === "number" && confidence > 0 && confidence < 0.65)) continue;
+          // Prevent an identical final phrase from being inserted twice after a restart.
+          if (transcript === lastTranscriptRef.current) continue;
+          lastTranscriptRef.current = transcript;
+          finalChunks.push(transcript);
+        }
+      }
+      if (finalChunks.length) {
+        const transcript = finalChunks.join(" ");
         setPrompt((current) => current ? current + " " + transcript : transcript);
       }
     };
@@ -118,7 +137,7 @@ The final product should feel like a real-world application, polished, scalable,
         setVoiceError("Microphone access was blocked. Allow microphone access in your browser settings and try again.");
         setIsListening(false);
       } else if (event.error !== "no-speech" && event.error !== "aborted") {
-        setVoiceError("Voice typing was interrupted. Trying to reconnect…");
+        setVoiceError("Speech recognition was interrupted. Trying to reconnect…");
       }
     };
     recognition.onend = () => {
