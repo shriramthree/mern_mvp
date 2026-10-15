@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 function App() {
   const [stack, setStack] = useState("");
@@ -13,6 +13,10 @@ function App() {
 
   const [result, setResult] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechLanguage, setSpeechLanguage] = useState("en-IN");
+  const [voiceError, setVoiceError] = useState("");
+  const recognitionRef = useRef(null);
 
   // 🧠 SMART PROMPT GENERATOR (LONG OUTPUT)
   const generatePromptLocally = () => {
@@ -75,6 +79,55 @@ The final product should feel like a real-world application, polished, scalable,
     }
   };
 
+  // 🎙️ VOICE-TO-TYPE using the browser Web Speech API
+  const handleVoiceInput = () => {
+    setVoiceError("");
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceError("Voice typing is not supported in this browser. Try the latest Chrome or Edge.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.lang = speechLanguage;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim();
+      if (transcript) {
+        setPrompt((current) => current ? current + " " + transcript : transcript);
+      }
+    };
+    recognition.onerror = (event) => {
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setVoiceError("Microphone access was blocked. Allow microphone access in your browser settings and try again.");
+      } else if (event.error === "no-speech") {
+        setVoiceError("No speech detected. Please try speaking again.");
+      } else if (event.error !== "aborted") {
+        setVoiceError("Voice typing stopped. Please try again.");
+      }
+      setIsListening(false);
+    };
+    recognition.onend = () => setIsListening(false);
+
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      setVoiceError("Could not start voice typing. Please try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f8f4ef] via-[#f5efe8] to-[#efe7dc] flex justify-center items-start pt-16 px-4 text-gray-800">
 
@@ -85,14 +138,45 @@ The final product should feel like a real-world application, polished, scalable,
           Prompt Generator
         </h1>
 
-        {/* PROMPT */}
-        <input
-          type="text"
-          placeholder="Describe your idea..."
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          className="w-full p-3 mb-4 rounded-xl border border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
-        />
+        {/* PROMPT + VOICE TYPING */}
+        <label htmlFor="project-idea" className="block mb-2 font-medium text-gray-700">
+          Describe your idea
+        </label>
+        <div className="flex flex-col sm:flex-row gap-2 mb-2">
+          <input
+            id="project-idea"
+            type="text"
+            placeholder="Describe your idea..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="min-w-0 flex-1 p-3 rounded-xl border border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
+          />
+          <button
+            type="button"
+            onClick={handleVoiceInput}
+            aria-pressed={isListening}
+            className={"shrink-0 px-4 py-3 rounded-xl font-semibold transition-colors " + (isListening ? "bg-red-500 hover:bg-red-600 text-white" : "bg-orange-100 hover:bg-orange-200 text-orange-700")}
+          >
+            {isListening ? "■ Stop listening" : "🎙️ Voice type"}
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
+          <label htmlFor="speech-language" className="text-gray-600">Voice language:</label>
+          <select
+            id="speech-language"
+            value={speechLanguage}
+            onChange={(e) => setSpeechLanguage(e.target.value)}
+            disabled={isListening}
+            className="p-2 rounded-lg border border-gray-300 bg-white"
+          >
+            <option value="en-IN">English (India)</option>
+            <option value="ta-IN">Tamil (India)</option>
+          </select>
+          {isListening && <span className="text-red-600" role="status" aria-live="polite">Listening… speak now</span>}
+        </div>
+        {voiceError && (
+          <p className="mb-4 text-sm text-red-600" role="alert">{voiceError}</p>
+        )}
 
         {/* TOOLS */}
         <select
