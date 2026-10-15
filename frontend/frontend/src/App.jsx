@@ -12,6 +12,7 @@ function App() {
   const [database, setDatabase] = useState("");
 
   const [result, setResult] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // 🧠 SMART PROMPT GENERATOR (LONG OUTPUT)
   const generatePromptLocally = () => {
@@ -59,10 +60,19 @@ The final product should feel like a real-world application, polished, scalable,
 `;
   };
 
-  // 🚀 HANDLE SUBMIT
-  const handleSubmit = () => {
-    const output = generatePromptLocally();
-    setResult(output);
+  // 🚀 HANDLE SUBMIT — show loading for at least 2 seconds
+  const handleSubmit = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    const startedAt = Date.now();
+    try {
+      const output = generatePromptLocally();
+      const remaining = Math.max(0, 2000 - (Date.now() - startedAt));
+      if (remaining > 0) await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      setResult(output);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -166,9 +176,16 @@ The final product should feel like a real-world application, polished, scalable,
         {/* BUTTON */}
         <button
           onClick={handleSubmit}
-          className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-xl font-semibold shadow-lg shadow-orange-500/30"
+          disabled={isGenerating}
+          aria-busy={isGenerating}
+          className="w-full mt-2 bg-orange-500 hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-80 text-white p-3 rounded-xl font-semibold shadow-lg shadow-orange-500/30 transition-opacity"
         >
-          Generate
+          {isGenerating ? (
+            <span className="inline-flex items-center justify-center gap-2" role="status" aria-live="polite">
+              <span className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />
+              Generating your prompt...
+            </span>
+          ) : ("Generate")}
         </button>
 
         {/* RESULT */}
