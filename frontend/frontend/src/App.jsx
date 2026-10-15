@@ -17,6 +17,7 @@ function App() {
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
   const [voiceError, setVoiceError] = useState("");
   const recognitionRef = useRef(null);
+  const shouldKeepListeningRef = useRef(false);
 
   // 🧠 SMART PROMPT GENERATOR (LONG OUTPUT)
   const generatePromptLocally = () => {
@@ -90,16 +91,19 @@ The final product should feel like a real-world application, polished, scalable,
     }
 
     if (isListening) {
+      shouldKeepListeningRef.current = false;
       recognitionRef.current?.stop();
       setIsListening(false);
       return;
     }
 
+    shouldKeepListeningRef.current = true;
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
     recognition.lang = speechLanguage;
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    // Continue listening across pauses until the user presses Stop.
+    recognition.continuous = true;
+    recognition.interimResults = true;
 
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event) => {
@@ -110,15 +114,26 @@ The final product should feel like a real-world application, polished, scalable,
     };
     recognition.onerror = (event) => {
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        shouldKeepListeningRef.current = false;
         setVoiceError("Microphone access was blocked. Allow microphone access in your browser settings and try again.");
-      } else if (event.error === "no-speech") {
-        setVoiceError("No speech detected. Please try speaking again.");
-      } else if (event.error !== "aborted") {
-        setVoiceError("Voice typing stopped. Please try again.");
+        setIsListening(false);
+      } else if (event.error !== "no-speech" && event.error !== "aborted") {
+        setVoiceError("Voice typing was interrupted. Trying to reconnect…");
       }
-      setIsListening(false);
     };
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      if (shouldKeepListeningRef.current) {
+        try {
+          recognition.start();
+        } catch {
+          shouldKeepListeningRef.current = false;
+          setIsListening(false);
+          setVoiceError("Voice typing could not resume. Press Voice type to try again.");
+        }
+      } else {
+        setIsListening(false);
+      }
+    };
 
     try {
       recognition.start();
