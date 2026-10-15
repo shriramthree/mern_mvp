@@ -103,12 +103,22 @@ The final product should feel like a real-world application, polished, scalable,
     recognition.lang = speechLanguage;
     // Continue listening across pauses until the user presses Stop.
     recognition.continuous = true;
-    recognition.interimResults = true;
+    // Only accept finalized speech results to avoid inserting unstable guesses.
+    recognition.interimResults = false;
 
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript?.trim();
-      if (transcript) {
+      // Process only new, final results. Never reuse results[0], which can be stale.
+      const finalChunks = [];
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const item = event.results[i];
+        if (item.isFinal) {
+          const transcript = item[0]?.transcript?.trim();
+          if (transcript) finalChunks.push(transcript);
+        }
+      }
+      if (finalChunks.length) {
+        const transcript = finalChunks.join(" ");
         setPrompt((current) => current ? current + " " + transcript : transcript);
       }
     };
@@ -118,7 +128,7 @@ The final product should feel like a real-world application, polished, scalable,
         setVoiceError("Microphone access was blocked. Allow microphone access in your browser settings and try again.");
         setIsListening(false);
       } else if (event.error !== "no-speech" && event.error !== "aborted") {
-        setVoiceError("Voice typing was interrupted. Trying to reconnect…");
+        setVoiceError("Speech recognition was interrupted. Trying to reconnect…");
       }
     };
     recognition.onend = () => {
