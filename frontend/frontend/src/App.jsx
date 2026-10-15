@@ -20,12 +20,13 @@ function App() {
   const shouldKeepListeningRef = useRef(false);
   const lastTranscriptRef = useRef("");
 
-  // 🧠 SMART PROMPT GENERATOR (LONG OUTPUT)
+  // 🧠 SMART PROMPT GENERATOR — Prime, Persona, Product, Privacy, Polish
   const generatePromptLocally = () => {
-    if (!prompt) return "Please enter an idea...";
+    const idea = prompt.trim();
+    if (!idea) return "Please enter your project idea before generating a prompt.";
 
-    let stackText = stack || "a modern full-stack solution";
-    let toolText = tools || "industry-standard development tools";
+    let stackText = stack || "the most suitable modern technology stack";
+    let toolText = tools || "appropriate industry-standard development tools";
 
     if (stack === "MERN") {
       stackText = "MongoDB, Express.js, React, and Node.js";
@@ -38,34 +39,35 @@ function App() {
     }
 
     return `
-🚀 DETAILED PROJECT PROMPT
+🚀 PROJECT PROMPT — PRIME FRAMEWORK
 
-Build a complete and scalable application based on the idea: "${prompt}".
+Use the following five-part framework. Follow every section explicitly and produce a practical, implementation-ready result.
 
-This project should go beyond a basic implementation and evolve into a production-ready system with modern design principles and strong architecture.
+1. PRIME — BACKGROUND, CONTEXT & SCENARIO
+Project idea: "${idea}"
+Explain the problem being solved, intended users, use cases, operating context, assumptions, and scope. If critical information is missing, state reasonable assumptions clearly rather than inventing facts. Keep the solution aligned with the actual idea.
 
-The application must include a clean, intuitive, and user-friendly interface that works seamlessly across mobile and desktop devices.
+2. PERSONA — EXPERT ROLE & POINT OF VIEW
+Act as a senior product architect, experienced software engineer, UI/UX designer, and security-conscious technical lead. Use a clear, professional, practical tone. Make decisions that prioritize usability, accessibility, maintainability, reliability, and a polished user experience.
 
-Use ${stackText} as the primary technology stack to ensure performance, scalability, and maintainability.
+3. PRODUCT — TASK, GOALS & REQUIRED DELIVERABLES
+Create a complete, detailed plan and implementation for the project described above. Use ${stackText} as the technology stack and ${toolText} as the preferred development tool(s).
+Authentication: ${auth || "recommend an appropriate approach only if the project needs it"}.
+Database: ${database || "choose and justify a suitable database based on the requirements"}.
+Deployment: ${deployment || "recommend a suitable deployment option and explain the setup"}.
+${model ? `AI integration: use ${model} where it clearly benefits the project.` : "AI integration: include it only when it adds clear value to the project."}
+Include: requirements and key features; architecture and folder structure; data model and API design where applicable; responsive and accessible UI; validation and error handling; security considerations; setup instructions; environment-variable guidance; testing strategy; and deployment steps. Provide working, consistent code or concrete implementation steps where requested. Do not leave placeholder functions or omit essential files without explaining why.
 
-Incorporate ${toolText} to streamline development, debugging, and deployment processes.
+4. PRIVACY — SAFETY, DATA & CONSTRAINTS
+Use secure defaults. Never expose, invent, or hard-code API keys, passwords, access tokens, private user data, or secrets. Use environment variables for credentials. Collect only necessary data, validate inputs, protect sensitive information, and explain any relevant privacy or security trade-offs. Respect the selected stack and stated constraints; do not claim that unimplemented features have been completed.
 
-Implement a secure authentication system (${auth || "if required"}) to manage users and protect data effectively.
+5. POLISH — REVIEW, REFINEMENT & FINAL QUALITY
+Before presenting the result, check that it directly satisfies the idea, all sections are consistent, code and commands fit the chosen stack, and no essential steps are missing. Improve clarity, structure, naming, accessibility, responsive behavior, and error handling. Format the response with meaningful headings, numbered steps, code blocks, and a concise verification checklist. Identify assumptions and limitations honestly, and suggest focused follow-up improvements only where useful.
 
-Design an efficient database structure (${database || "best suitable database"}) to handle large-scale data operations smoothly.
-
-Follow a modular and well-organized folder structure separating frontend, backend, and services for better scalability and maintainability.
-
-Ensure proper error handling, validation, and optimized performance across all components of the application.
-
-Deploy the application using ${deployment || "a reliable cloud platform like Vercel, AWS, or Render"}.
-
-${model ? `Integrate AI capabilities using ${model} where necessary to enhance user experience.` : "AI integration can be added if the project requires intelligent features."}
-
-The final product should feel like a real-world application, polished, scalable, and ready for real users.
+FINAL INSTRUCTION
+Deliver a cohesive, production-minded result tailored to the project idea. Prioritize correctness and completeness over unnecessary complexity. If the request is ambiguous, ask only essential clarifying questions or proceed with clearly stated assumptions.
 `;
   };
-
   // 🚀 HANDLE SUBMIT — show loading for at least 2 seconds
   const handleSubmit = async () => {
     if (isGenerating) return;
