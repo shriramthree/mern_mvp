@@ -13,7 +13,7 @@ const analysis = {
 
 // 1) section validator: exact labels, FUNCTIONAL must not be satisfied by NON-FUNCTIONAL
 assert.equal(validatePrompt(fullPrompt).ok, true);
-const noFunctional = fullPrompt.replace(/## 6\\. FUNCTIONAL REQUIREMENTS\ncontent\n\n/, "");
+const noFunctional = fullPrompt.replace(/## 6\. FUNCTIONAL REQUIREMENTS\ncontent\n\n/, "");
 assert.deepEqual(validatePrompt(noFunctional).missing, ["FUNCTIONAL REQUIREMENTS"]);
 
 // 2) happy path = exactly 2 model calls
