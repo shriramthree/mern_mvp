@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 const SELECT = "w-full p-3 mb-4 rounded-xl border border-gray-300 bg-white";
 
@@ -44,6 +44,7 @@ function App() {
     setError("");
     setCopied(false);
     setIsGenerating(true);
+    const startedAt = Date.now();
     try {
       const { data } = await axios.post(`${API_URL}/api/generate`, {
         prompt,
@@ -58,14 +59,20 @@ function App() {
         purpose,
         outputLanguage,
       });
+      if (typeof data.result !== "string" || !data.result.trim()) {
+        throw new Error("The server returned an empty prompt. Please try again.");
+      }
       setResult(data.result);
       setAnalysis(data.analysis || null);
       setValidation(data.validation || null);
     } catch (err) {
       setResult("");
       setAnalysis(null);
-      setError(err.response?.data?.error || "Could not reach the server. Check that the backend is running.");
+      setValidation(null);
+      setError(err.response?.data?.error || err.message || "Could not reach the server. Check that the backend is running.");
     } finally {
+      const remaining = Math.max(0, 2000 - (Date.now() - startedAt));
+      if (remaining > 0) await new Promise((resolve) => window.setTimeout(resolve, remaining));
       setIsGenerating(false);
     }
   };
@@ -156,6 +163,7 @@ function App() {
     try {
       recognition.start();
     } catch {
+      shouldKeepListeningRef.current = false;
       setIsListening(false);
       setVoiceError("Could not start voice typing. Please try again.");
     }
