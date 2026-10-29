@@ -200,10 +200,10 @@ WRITING RULES
  * ------------------------------------------------------------------ */
 
 export function validatePrompt(text) {
-  const escape = (v) => v.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&").replace(/\\s+/g, "\\\\s+");
+  const escape = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
   const missing = REQUIRED_SECTIONS.filter((s) => {
     // heading line: optional #'s, optional number, then the exact label
-    const re = new RegExp(`^\\\\s*(?:#{1,4}\\\\s*)?(?:\\\\d+[.)]\\\\s*)?\\\\**${escape(s.label)}\\\\b`, "im");
+    const re = new RegExp(`^\\s*(?:#{1,4}\\s*)?(?:\\d+[.)]\\s*)?\\**${escape(s.label)}\\b`, "im");
     return !re.test(text);
   }).map((s) => s.label);
   return { ok: missing.length === 0, missing };
