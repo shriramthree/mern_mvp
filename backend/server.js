@@ -13,6 +13,7 @@ const MAX_IDEA_CHARS = 4000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 12;
 const rateLimitEntries = new Map();
+if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
 
 const allowedOrigins = new Set(
   (process.env.CLIENT_ORIGIN || "")
@@ -26,7 +27,7 @@ app.use(cors({
     if (!origin || allowedOrigins.size === 0 || allowedOrigins.has(origin)) {
       return callback(null, true);
     }
-    return callback(null, false);
+    return callback(new Error("CORS_ORIGIN_DENIED"));
   },
 }));
 app.use(express.json({ limit: "50kb" }));
@@ -196,6 +197,9 @@ app.post("/api/generate", handleGenerate);
 app.post("/generate", handleGenerate);
 
 app.use((error, _req, res, _next) => {
+  if (error?.message === "CORS_ORIGIN_DENIED") {
+    return res.status(403).json({ error: "This website origin is not allowed by the backend." });
+  }
   if (error?.type === "entity.parse.failed") {
     return res.status(400).json({ error: "Request body must be valid JSON." });
   }
