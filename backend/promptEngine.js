@@ -158,7 +158,7 @@ export function buildComposeSystem({ targetTool, outputLanguage }) {
       ? "Write the final prompt in Tamil (Tamil script). Keep technical terms, code, commands and file names in English."
       : "Write the final prompt in clear, professional English, even if the user's idea was in Tamil or Tanglish.";
 
-  const sectionList = REQUIRED_SECTIONS.map((s, i) => `## ${i + 1}. ${s.label}`).join("\\n");
+  const sectionList = REQUIRED_SECTIONS.map((s, i) => `## ${i + 1}. ${s.label}`).join("\n");
 
   return `
 You are a world-class prompt engineer. You receive (a) a structured analysis of a user's idea and
@@ -211,8 +211,8 @@ export function validatePrompt(text) {
 
 export function parseJson(text) {
   const cleaned = String(text || "")
-    .replace(/^\\x60\\x60\\x60(?:json)?/i, "")
-    .replace(/\\x60\\x60\\x60$/i, "")
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
     .trim();
   return JSON.parse(cleaned);
 }
@@ -236,7 +236,7 @@ export function buildAnalysisInput({ idea, options }) {
     line("Authentication", options.auth),
     line("Deployment", options.deployment),
     line("AI model integration", options.model),
-  ].join("\\n");
+  ].join("\n");
 }
 
 export function buildComposeInput({ idea, analysis, options }) {
@@ -249,7 +249,7 @@ export function buildComposeInput({ idea, analysis, options }) {
     "",
     "USER OPTIONS (AI_DECIDE = you choose and justify, SKIP = leave out):",
     JSON.stringify(options, null, 2),
-  ].join("\\n");
+  ].join("\n");
 }
 
 /* ------------------------------------------------------------------ *
@@ -295,7 +295,7 @@ export async function runPipeline({ idea, options, generate }) {
       system,
       input:
         input +
-        `\\n\\nYour previous draft was missing these sections: ${check.missing.join(", ")}.\\n` +
+        `\n\nYour previous draft was missing these sections: ${check.missing.join(", ")}.\n` +
         "Rewrite the COMPLETE prompt including every required section.",
       temperature: 0.3,
     });
