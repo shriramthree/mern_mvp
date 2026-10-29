@@ -1,4 +1,9 @@
 import { useRef, useState } from "react";
+import axios from "axios";
+
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+
+const SELECT = "w-full p-3 mb-4 rounded-xl border border-gray-300 bg-white";
 
 function App() {
   const [stack, setStack] = useState("");
@@ -11,7 +16,16 @@ function App() {
   const [model, setModel] = useState("");
   const [database, setDatabase] = useState("");
 
+  // user background (helps the system calibrate the prompt)
+  const [skillLevel, setSkillLevel] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [outputLanguage, setOutputLanguage] = useState("en");
+
   const [result, setResult] = useState("");
+  const [analysis, setAnalysis] = useState(null);
+  const [validation, setValidation] = useState(null);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
@@ -20,66 +34,56 @@ function App() {
   const shouldKeepListeningRef = useRef(false);
   const lastTranscriptRef = useRef("");
 
-  // 🧠 SMART PROMPT GENERATOR — Prime, Persona, Product, Privacy, Polish
-  const generatePromptLocally = () => {
-    const idea = prompt.trim();
-    if (!idea) return "Please enter your project idea before generating a prompt.";
-
-    let stackText = stack || "the most suitable modern technology stack";
-    let toolText = tools || "appropriate industry-standard development tools";
-
-    if (stack === "MERN") {
-      stackText = "MongoDB, Express.js, React, and Node.js";
-    } else if (stack === "MEAN") {
-      stackText = "MongoDB, Express.js, Angular, and Node.js";
-    } else if (stack === "LAMP") {
-      stackText = "Linux, Apache, MySQL, and PHP";
-    } else if (stack === "JAMstack") {
-      stackText = "JavaScript, APIs, and Markup";
-    }
-
-    return `
-🚀 PROJECT PROMPT — PRIME FRAMEWORK
-
-Use the following five-part framework. Follow every section explicitly and produce a practical, implementation-ready result.
-
-1. PRIME — BACKGROUND, CONTEXT & SCENARIO
-Project idea: "${idea}"
-Explain the problem being solved, intended users, use cases, operating context, assumptions, and scope. If critical information is missing, state reasonable assumptions clearly rather than inventing facts. Keep the solution aligned with the actual idea.
-
-2. PERSONA — EXPERT ROLE & POINT OF VIEW
-Act as a senior product architect, experienced software engineer, UI/UX designer, and security-conscious technical lead. Use a clear, professional, practical tone. Make decisions that prioritize usability, accessibility, maintainability, reliability, and a polished user experience.
-
-3. PRODUCT — TASK, GOALS & REQUIRED DELIVERABLES
-Create a complete, detailed plan and implementation for the project described above. Use ${stackText} as the technology stack and ${toolText} as the preferred development tool(s).
-Authentication: ${auth || "recommend an appropriate approach only if the project needs it"}.
-Database: ${database || "choose and justify a suitable database based on the requirements"}.
-Deployment: ${deployment || "recommend a suitable deployment option and explain the setup"}.
-${model ? `AI integration: use ${model} where it clearly benefits the project.` : "AI integration: include it only when it adds clear value to the project."}
-Include: requirements and key features; architecture and folder structure; data model and API design where applicable; responsive and accessible UI; validation and error handling; security considerations; setup instructions; environment-variable guidance; testing strategy; and deployment steps. Provide working, consistent code or concrete implementation steps where requested. Do not leave placeholder functions or omit essential files without explaining why.
-
-4. PRIVACY — SAFETY, DATA & CONSTRAINTS
-Use secure defaults. Never expose, invent, or hard-code API keys, passwords, access tokens, private user data, or secrets. Use environment variables for credentials. Collect only necessary data, validate inputs, protect sensitive information, and explain any relevant privacy or security trade-offs. Respect the selected stack and stated constraints; do not claim that unimplemented features have been completed.
-
-5. POLISH — REVIEW, REFINEMENT & FINAL QUALITY
-Before presenting the result, check that it directly satisfies the idea, all sections are consistent, code and commands fit the chosen stack, and no essential steps are missing. Improve clarity, structure, naming, accessibility, responsive behavior, and error handling. Format the response with meaningful headings, numbered steps, code blocks, and a concise verification checklist. Identify assumptions and limitations honestly, and suggest focused follow-up improvements only where useful.
-
-FINAL INSTRUCTION
-Deliver a cohesive, production-minded result tailored to the project idea. Prioritize correctness and completeness over unnecessary complexity. If the request is ambiguous, ask only essential clarifying questions or proceed with clearly stated assumptions.
-`;
-  };
-  // 🚀 HANDLE SUBMIT — show loading for at least 2 seconds
+  // 🚀 Send the idea to the backend: Gemini analyses it (English/Tamil/Tanglish), then writes the full prompt
   const handleSubmit = async () => {
     if (isGenerating) return;
+    if (prompt.trim().length < 3) {
+      setError("Please describe your idea first.");
+      return;
+    }
+    setError("");
+    setCopied(false);
     setIsGenerating(true);
     const startedAt = Date.now();
     try {
-      const output = generatePromptLocally();
+      const { data } = await axios.post(`${API_URL}/api/generate`, {
+        prompt,
+        tools,
+        mode,
+        stack,
+        deployment,
+        auth,
+        model,
+        database,
+        skillLevel,
+        purpose,
+        outputLanguage,
+      });
+      if (typeof data.result !== "string" || !data.result.trim()) {
+        throw new Error("The server returned an empty prompt. Please try again.");
+      }
+      setResult(data.result);
+      setAnalysis(data.analysis || null);
+      setValidation(data.validation || null);
+    } catch (err) {
+      setResult("");
+      setAnalysis(null);
+      setValidation(null);
+      setError(err.response?.data?.error || err.message || "Could not reach the server. Check that the backend is running.");
+    } finally {
       const remaining = Math.max(0, 2000 - (Date.now() - startedAt));
       if (remaining > 0) await new Promise((resolve) => window.setTimeout(resolve, remaining));
-      setResult(output);
-    } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Copy failed. Select the text and copy it manually.");
     }
   };
 
@@ -159,39 +163,42 @@ Deliver a cohesive, production-minded result tailored to the project idea. Prior
     try {
       recognition.start();
     } catch {
+      shouldKeepListeningRef.current = false;
       setIsListening(false);
       setVoiceError("Could not start voice typing. Please try again.");
     }
   };
 
+  const list = (items) => (items || []).filter(Boolean);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f8f4ef] via-[#f5efe8] to-[#efe7dc] flex justify-center items-start pt-16 px-4 text-gray-800">
-
+    <div className="min-h-screen bg-gradient-to-br from-[#f8f4ef] via-[#f5efe8] to-[#efe7dc] flex justify-center items-start py-12 px-4 text-gray-800">
       <div className="w-full max-w-2xl bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-md border border-gray-200">
-
         {/* TITLE */}
-        <h1 className="text-4xl font-bold mb-6 text-center text-orange-500">
-          Prompt Generator
-        </h1>
+        <h1 className="text-4xl font-bold mb-2 text-center text-orange-500">Prompt Generator</h1>
+        <p className="text-center text-sm text-gray-500 mb-6">
+          Write your idea in simple English or Tamil. We analyse it and build a complete, structured prompt.
+        </p>
 
-        {/* PROMPT + VOICE TYPING */}
+        {/* IDEA + VOICE TYPING */}
         <label htmlFor="project-idea" className="block mb-2 font-medium text-gray-700">
           Describe your idea
         </label>
         <div className="flex flex-col sm:flex-row gap-2 mb-2">
-          <input
+          <textarea
             id="project-idea"
-            type="text"
-            placeholder="Describe your idea..."
+            rows={4}
+            placeholder="e.g. A website where farmers can see daily crop prices  /  விவசாயிகளுக்கான பயிர் விலை செயலி"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            maxLength={4000}
             className="min-w-0 flex-1 p-3 rounded-xl border border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
           <button
             type="button"
             onClick={handleVoiceInput}
             aria-pressed={isListening}
-            className={"shrink-0 px-4 py-3 rounded-xl font-semibold transition-colors " + (isListening ? "bg-red-500 hover:bg-red-600 text-white" : "bg-orange-100 hover:bg-orange-200 text-orange-700")}
+            className={"shrink-0 px-4 py-3 rounded-xl font-semibold transition-colors self-start " + (isListening ? "bg-red-500 hover:bg-red-600 text-white" : "bg-orange-100 hover:bg-orange-200 text-orange-700")}
           >
             {isListening ? "■ Stop listening" : "🎙️ Voice type"}
           </button>
@@ -210,29 +217,44 @@ Deliver a cohesive, production-minded result tailored to the project idea. Prior
           </select>
           {isListening && <span className="text-red-600" role="status" aria-live="polite">Listening… speak now</span>}
         </div>
-        {voiceError && (
-          <p className="mb-4 text-sm text-red-600" role="alert">{voiceError}</p>
-        )}
+        {voiceError && <p className="mb-4 text-sm text-red-600" role="alert">{voiceError}</p>}
+
+        {/* ABOUT YOU */}
+        <div className="grid sm:grid-cols-2 gap-x-4">
+          <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)} className={SELECT} aria-label="Your skill level">
+            <option value="">Your skill level</option>
+            <option>Beginner</option>
+            <option>Intermediate</option>
+            <option>Expert</option>
+          </select>
+          <select value={purpose} onChange={(e) => setPurpose(e.target.value)} className={SELECT} aria-label="Purpose">
+            <option value="">What is this for?</option>
+            <option>College project</option>
+            <option>Startup MVP</option>
+            <option>Portfolio</option>
+            <option>Client work</option>
+            <option>Learning</option>
+            <option>Research</option>
+          </select>
+        </div>
 
         {/* TOOLS */}
-        <select
-          value={tools}
-          onChange={(e) => setTools(e.target.value)}
-          className="w-full p-3 mb-4 rounded-xl border border-gray-300"
-        >
-          <option value="">Select Tool</option>
+        <select value={tools} onChange={(e) => setTools(e.target.value)} className={SELECT} aria-label="Target AI tool">
+          <option value="">Which AI tool will run this prompt?</option>
           <option value="Gemini">Gemini</option>
           <option value="Claude">Claude</option>
           <option value="Replit">Replit</option>
           <option value="Cursor">Cursor</option>
         </select>
 
+        {/* OUTPUT LANGUAGE */}
+        <select value={outputLanguage} onChange={(e) => setOutputLanguage(e.target.value)} className={SELECT} aria-label="Prompt language">
+          <option value="en">Write the final prompt in English (recommended)</option>
+          <option value="ta">Write the final prompt in Tamil</option>
+        </select>
+
         {/* MODE */}
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-          className="w-full p-3 mb-4 rounded-xl border border-gray-300"
-        >
+        <select value={mode} onChange={(e) => setMode(e.target.value)} className={SELECT} aria-label="Mode">
           <option value="ai">AI Decide Everything</option>
           <option value="customize">Customize</option>
         </select>
@@ -240,11 +262,7 @@ Deliver a cohesive, production-minded result tailored to the project idea. Prior
         {/* CUSTOM OPTIONS */}
         {mode === "customize" && (
           <>
-            <select
-              value={stack}
-              onChange={(e) => setStack(e.target.value)}
-              className="w-full p-3 mb-4 rounded-xl border border-gray-300"
-            >
+            <select value={stack} onChange={(e) => setStack(e.target.value)} className={SELECT}>
               <option value="">Select Stack</option>
               <option value="MERN">MERN Stack</option>
               <option value="MEAN">MEAN Stack</option>
@@ -253,39 +271,27 @@ Deliver a cohesive, production-minded result tailored to the project idea. Prior
               <option value="Full Stack">Full Stack</option>
             </select>
 
-            <select
-              onChange={(e) => setDeployment(e.target.value)}
-              className="w-full p-3 mb-4 rounded-xl border border-gray-300"
-            >
+            <select value={deployment} onChange={(e) => setDeployment(e.target.value)} className={SELECT}>
               <option value="">Deployment</option>
               <option>Vercel</option>
               <option>AWS</option>
               <option>Render</option>
             </select>
 
-            <select
-              onChange={(e) => setAuth(e.target.value)}
-              className="w-full p-3 mb-4 rounded-xl border border-gray-300"
-            >
+            <select value={auth} onChange={(e) => setAuth(e.target.value)} className={SELECT}>
               <option value="">Auth</option>
               <option>JWT</option>
               <option>Firebase</option>
             </select>
 
-            <select
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full p-3 mb-4 rounded-xl border border-gray-300"
-            >
+            <select value={model} onChange={(e) => setModel(e.target.value)} className={SELECT}>
               <option value="">Model</option>
               <option>OpenAI</option>
               <option>Gemini</option>
               <option>Claude</option>
             </select>
 
-            <select
-              onChange={(e) => setDatabase(e.target.value)}
-              className="w-full p-3 mb-4 rounded-xl border border-gray-300"
-            >
+            <select value={database} onChange={(e) => setDatabase(e.target.value)} className={SELECT}>
               <option value="">Database</option>
               <option>MongoDB</option>
               <option>PostgreSQL</option>
@@ -303,20 +309,60 @@ Deliver a cohesive, production-minded result tailored to the project idea. Prior
           {isGenerating ? (
             <span className="inline-flex items-center justify-center gap-2" role="status" aria-live="polite">
               <span className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />
-              Generating your prompt...
+              Analysing your idea and building the prompt...
             </span>
-          ) : ("Generate")}
+          ) : (
+            "Generate"
+          )}
         </button>
 
-        {/* RESULT */}
-        {result && (
-          <div className="mt-6 p-4 rounded-xl bg-gray-100 border border-gray-200 max-h-64 overflow-auto">
-            <pre className="text-sm whitespace-pre-wrap text-gray-800">
-              {result}
-            </pre>
+        {error && <p className="mt-4 text-sm text-red-600" role="alert">{error}</p>}
+
+        {/* WHAT WE UNDERSTOOD */}
+        {analysis && (
+          <div className="mt-6 p-4 rounded-xl bg-orange-50 border border-orange-200 text-sm">
+            <p className="font-semibold text-orange-700 mb-1">What I understood</p>
+            <p className="mb-2">{analysis.understood_summary}</p>
+            <p className="text-gray-600">
+              Language: <b>{analysis.detected_language}</b> · Type: <b>{analysis.project_type}</b> · Complexity: <b>{analysis.complexity}</b>
+              {typeof analysis.confidence === "number" && <> · Confidence: <b>{Math.round(analysis.confidence * 100)}%</b></>}
+            </p>
+            {list(analysis.open_questions).length > 0 && (
+              <div className="mt-3">
+                <p className="font-semibold text-orange-700">Answer these to make the prompt sharper:</p>
+                <ul className="list-disc pl-5 text-gray-700">
+                  {list(analysis.open_questions).map((q) => <li key={q}>{q}</li>)}
+                </ul>
+                <p className="text-xs text-gray-500 mt-1">Add your answers to the idea box and press Generate again.</p>
+              </div>
+            )}
           </div>
         )}
 
+        {validation && !validation.ok && (
+          <p className="mt-3 text-sm text-amber-700" role="status">
+            Some sections may be incomplete: {validation.missing.join(", ")}. Try generating again.
+          </p>
+        )}
+
+        {/* RESULT */}
+        {result && (
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="font-semibold text-gray-700">Your prompt</h2>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="px-3 py-1 text-sm rounded-lg bg-orange-100 hover:bg-orange-200 text-orange-700 font-semibold"
+              >
+                {copied ? "✓ Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="p-4 rounded-xl bg-gray-100 border border-gray-200 max-h-[32rem] overflow-auto">
+              <pre className="text-sm whitespace-pre-wrap text-gray-800">{result}</pre>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
