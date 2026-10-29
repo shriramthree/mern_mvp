@@ -1,4 +1,5 @@
-import { Type } from "@google/genai";
+// Gemini REST API schema type constants (no SDK dependency needed for unit tests).
+const Type = { OBJECT: "OBJECT", STRING: "STRING", ARRAY: "ARRAY", NUMBER: "NUMBER" };
 
 /* ------------------------------------------------------------------ *
  * STAGE 1 — ANALYSE
