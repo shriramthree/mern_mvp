@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - update-from-mern-mvp-zip-2026-10-29
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Check backend JavaScript syntax
+        working-directory: backend
+        run: |
+          node --check server.js
+          node --check promptEngine.js
+          node --check test/engine.test.js
+
+      - name: Test prompt-engine pipeline (no API key required)
+        working-directory: backend
+        run: npm test
+
+      - name: Install frontend dependencies
+        working-directory: frontend/frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: frontend/frontend
+        run: npm run build
