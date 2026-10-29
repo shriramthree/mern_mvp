@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { runPipeline, validatePrompt, REQUIRED_SECTIONS, buildComposeSystem } from "../promptEngine.js";
 
-const fullPrompt = REQUIRED_SECTIONS.map((s, i) => `## ${i + 1}. ${s.label}\\ncontent`).join("\\n\\n");
+const fullPrompt = REQUIRED_SECTIONS.map((s, i) => `## ${i + 1}. ${s.label}\ncontent`).join("\n\n");
 const analysis = {
   detected_language: "tamil", normalized_idea_en: "A farmers' crop price tracker",
   understood_summary: "விவசாயிகளுக்கான விலை கண்காணிப்பு", project_type: "web app", domain: "agriculture",
@@ -13,7 +13,7 @@ const analysis = {
 
 // 1) section validator: exact labels, FUNCTIONAL must not be satisfied by NON-FUNCTIONAL
 assert.equal(validatePrompt(fullPrompt).ok, true);
-const noFunctional = fullPrompt.replace(/## 6\\. FUNCTIONAL REQUIREMENTS\\ncontent\\n\\n/, "");
+const noFunctional = fullPrompt.replace(/## 6\\. FUNCTIONAL REQUIREMENTS\ncontent\n\n/, "");
 assert.deepEqual(validatePrompt(noFunctional).missing, ["FUNCTIONAL REQUIREMENTS"]);
 
 // 2) happy path = exactly 2 model calls
@@ -33,8 +33,8 @@ out = await runPipeline({
   idea: "todo app", options: {},
   generate: async (a) => {
     calls.push(a);
-    if (a.schema) return "```json\\n" + JSON.stringify(analysis) + "\\n```";
-    return calls.length === 2 ? "## 1. ROLE & PERSONA\\nonly this" : fullPrompt;
+    if (a.schema) return "```json\n" + JSON.stringify(analysis) + "\n```";
+    return calls.length === 2 ? "## 1. ROLE & PERSONA\nonly this" : fullPrompt;
   },
 });
 assert.equal(calls.length, 3);
