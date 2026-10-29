@@ -1,96 +1,58 @@
-
 import express from "express";
 import cors from "cors";
-import Groq from "groq-sdk";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
+import { runPipeline } from "./promptEngine.js";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
+const app = express();
+const PORT = Number(process.env.PORT || 5000);
+const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const API_KEY = process.env.GEMINI_API_KEY;
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "").split(",").map((s) => s.trim()).filter(Boolean);
 
-const app = express(); // 
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin(origin, callback) {
+  if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return callback(null, true);
+  return callback(new Error("Origin is not allowed by CORS"));
+}}));
+app.use(express.json({ limit: "1mb" }));
+app.use(rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false }));
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+app.get("/", (_req, res) => res.json({ name: "Promptronix API", status: "ok" }));
+app.get("/health", (_req, res) => res.json({ status: "ok", model: MODEL, apiKeyConfigured: Boolean(API_KEY) }));
 
-app.post("/generate", async (req, res) => {
+app.post("/api/generate", async (req, res) => {
   try {
-    const {
-      prompt,
-      mode,
-      ui,
-      tools,
-      deployment,
-      auth,
-      model,
-      database,
-      stack
-    } = req.body;
-
-    function resolveOption(option, defaultValue) {
-      if (!option) return defaultValue;
-      if (option === "no_idea") return "AI_DECIDE";
-      if (option === "not_needed") return "SKIP";
-      return option;
+    const { idea, options = {} } = req.body || {};
+    if (typeof idea !== "string" || idea.trim().length < 3) {
+      return res.status(400).json({ error: "Please provide a project idea with at least 3 characters." });
     }
+    if (idea.length > 12_000) return res.status(413).json({ error: "Project idea is too long (maximum 12,000 characters)." });
+    if (!API_KEY) return res.status(503).json({ error: "Gemini API is not configured. Set GEMINI_API_KEY on the server." });
 
-    // ✅ FIXED (tools is now string, not array)
-    const finalTools = tools || "AI_DECIDE";
-
-    const finalTheme = resolveOption(ui?.theme, "modern");
-    const finalColor = resolveOption(ui?.color, "blue");
-    const finalDeployment = resolveOption(deployment, "AI_DECIDE");
-    const finalAuth = resolveOption(auth, "AI_DECIDE");
-    const finalModel = resolveOption(model, "AI_DECIDE");
-    const finalDatabase = resolveOption(database, "AI_DECIDE");
-    const finalStack = stack || "AI_DECIDE";
-    const systemPrompt = `
-You are an expert at programming and architect.
-
-Rules:
-- AI_DECIDE → choose best option
-- SKIP → remove feature
-
-Return:
-- Tech stack
-- UI/UX
-- Tools
-- Features
-- Folder structure
-`;
-
-    const userPrompt = `
-Idea: ${prompt}
-
-Mode: ${mode}
-
-Theme: ${finalTheme}
-Color: ${finalColor}
-
-Tools: ${finalTools}
-Deployment: ${finalDeployment}
-Auth: ${finalAuth}
-Model: ${finalModel}
-Database: ${finalDatabase}
-Stack: ${finalStack}
-`;
-
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
-
-    res.json({ result: response.choices[0].message.content });
-
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    const generate = async ({ system, input, schema }) => {
+      const config = { systemInstruction: system, temperature: 0.3 };
+      if (schema) {
+        config.responseMimeType = "application/json";
+        config.responseSchema = schema;
+      }
+      const response = await ai.models.generateContent({ model: MODEL, contents: input, config });
+      return response.text || "";
+    };
+    const result = await runPipeline({ idea: idea.trim(), options, generate });
+    return res.json(result);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+    console.error("Prompt generation failed:", error?.message || error);
+    const message = error?.status === 429 ? "Gemini rate limit reached. Please try again shortly." : "Prompt generation failed. Check server configuration and try again.";
+    return res.status(error?.status === 429 ? 429 : 500).json({ error: message });
   }
 });
-app.listen(5000, () => {
-  console.log("🔥 Server running on port 5000");
+
+app.use((err, _req, res, _next) => {
+  console.error("Request error:", err?.message || err);
+  res.status(500).json({ error: "Request could not be processed." });
 });
+
+app.listen(PORT, () => console.log(`Promptronix API listening on port ${PORT}`));
