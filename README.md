@@ -48,6 +48,7 @@ Backend `backend/.env`:
 - `GEMINI_MODEL` — optional; defaults to `gemini-3.8-flash`.
 - `PORT` — optional; defaults to `5000`.
 - `CLIENT_ORIGIN` — comma-separated allowed frontend origins. Set this to your actual production frontend URL when deployed.
+- `TRUST_PROXY` — set to `1` only if the backend is behind one trusted reverse proxy; otherwise leave it at `0`.
 
 Frontend `frontend/frontend/.env`:
 
