@@ -106,7 +106,8 @@ async function generate({ system, input, schema }) {
     throw error;
   }
 
-  // Gemini 3.8 Flash defaults to medium reasoning. LOW is intended for latency-sensitive requests.\n  const generationConfig = { thinkingConfig: { thinkingLevel: "low" } };
+  // Gemini 3.8 Flash defaults to medium reasoning. LOW is intended for latency-sensitive requests.
+  const generationConfig = { thinkingConfig: { thinkingLevel: "low" } };
   if (schema) {
     generationConfig.responseMimeType = "application/json";
     generationConfig.responseSchema = schema;
