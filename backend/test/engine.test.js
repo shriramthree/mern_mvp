@@ -1,48 +1,43 @@
-// Offline test: stubs Gemini so the pipeline logic can be verified without an API key.
+// Offline tests for the fast one-request prompt pipeline. No API key needed.
 import assert from "node:assert/strict";
-import { runPipeline, validatePrompt, REQUIRED_SECTIONS, buildComposeSystem } from "../promptEngine.js";
+import { runPipeline, validatePrompt, REQUIRED_SECTIONS, buildFastSystem } from "../promptEngine.js";
 
-const fullPrompt = REQUIRED_SECTIONS.map((s, i) => `## ${i + 1}. ${s.label}\ncontent`).join("\n\n");
-const analysis = {
-  detected_language: "tamil", normalized_idea_en: "A farmers' crop price tracker",
-  understood_summary: "விவசாயிகளுக்கான விலை கண்காணிப்பு", project_type: "web app", domain: "agriculture",
-  problem_statement: "x", target_users: [], core_features: [], implied_features: [], constraints: [],
-  edge_cases: [], sensitive_areas: [], suggested_decisions: [], assumptions: [], open_questions: [],
-  complexity: "small", confidence: 0.9,
-};
+const fullPrompt = REQUIRED_SECTIONS.map((label, index) => `## ${index + 1}. ${label}\ncontent`).join("\n\n");
 
-// 1) section validator: exact labels, FUNCTIONAL must not be satisfied by NON-FUNCTIONAL
+// 1) All 17 required headings validate; a missing functional section is detected.
+assert.equal(REQUIRED_SECTIONS.length, 17);
 assert.equal(validatePrompt(fullPrompt).ok, true);
 const noFunctional = fullPrompt.replace(/## 6\. FUNCTIONAL REQUIREMENTS\ncontent\n\n/, "");
 assert.deepEqual(validatePrompt(noFunctional).missing, ["FUNCTIONAL REQUIREMENTS"]);
 
-// 2) happy path = exactly 2 model calls
-let calls = [];
-let out = await runPipeline({
-  idea: "விவசாயிகளுக்கு பயிர் விலை செயலி", options: { targetTool: "Cursor", outputLanguage: "en" },
-  generate: async (a) => { calls.push(a); return a.schema ? JSON.stringify(analysis) : fullPrompt; },
-});
-assert.equal(calls.length, 2);
-assert.equal(out.validation.ok, true);
-assert.equal(out.analysis.detected_language, "tamil");
-assert.ok(calls[1].input.includes("விவசாயிகளுக்கு"), "original Tamil text must reach the compose stage");
-
-// 3) incomplete draft triggers exactly one repair call
-calls = [];
-out = await runPipeline({
-  idea: "todo app", options: {},
-  generate: async (a) => {
-    calls.push(a);
-    if (a.schema) return "```json\n" + JSON.stringify(analysis) + "\n```";
-    return calls.length === 2 ? "## 1. ROLE & PERSONA\nonly this" : fullPrompt;
+// 2) A complete generation makes exactly ONE model request.
+const calls = [];
+const idea = "விவசாயிகளுக்கு பயிர் விலை செயலி";
+const out = await runPipeline({
+  idea,
+  options: { targetTool: "Cursor", outputLanguage: "en", skillLevel: "Beginner" },
+  generate: async (args) => {
+    calls.push(args);
+    return fullPrompt;
   },
 });
-assert.equal(calls.length, 3);
+assert.equal(calls.length, 1, "fast mode must call Gemini once, not twice or three times");
 assert.equal(out.validation.ok, true);
-assert.ok(calls[2].input.includes("missing these sections"));
+assert.equal(out.analysis, null);
+assert.ok(calls[0].input.includes(idea), "original Tamil idea must be preserved in the model input");
+assert.ok(calls[0].system.includes("700-1,000 words"), "fast mode should request a concise prompt");
+assert.ok(calls[0].system.includes("Cursor"), "selected target tool must affect the prompt");
 
-// 4) output-language and tool switches reach the system prompt
-assert.ok(buildComposeSystem({ targetTool: "Cursor", outputLanguage: "ta" }).includes("Tamil script"));
-assert.ok(buildComposeSystem({ targetTool: "Cursor", outputLanguage: "en" }).includes("Cursor"));
+// 3) Fast mode uses Tamil output instructions when selected.
+assert.ok(buildFastSystem({ outputLanguage: "ta" }).includes("Tamil script"));
+assert.ok(buildFastSystem({ outputLanguage: "en" }).includes("professional English"));
 
-console.log("✅ all engine tests passed");
+// 4) Invalid input is rejected before any model call.
+let called = false;
+await assert.rejects(
+  runPipeline({ idea: " ", options: {}, generate: async () => { called = true; return fullPrompt; } }),
+  /at least 3 characters/
+);
+assert.equal(called, false);
+
+console.log("✅ all fast prompt-engine tests passed");
