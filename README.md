@@ -1,13 +1,13 @@
 # Promptronix — AI Prompt Generator
 
-Promptronix turns a rough project idea into a structured prompt for AI coding tools. The frontend sends the idea and your preferences to an Express backend; the backend uses the Gemini API to analyse the requirements, compose a detailed prompt, validate its required sections, and repair the prompt once if any section is missing.
+Promptronix turns a rough project idea into a structured prompt for AI coding tools. The frontend sends the idea and preferences to an Express backend; the backend makes **one Gemini request per prompt**, using low thinking effort for faster responses, then checks the required sections locally.
 
 ## How it works
 
 1. **Enter an idea** in English, Tamil script, or Tanglish, by typing or voice.
 2. **Choose preferences** such as target tool, skill level, purpose, output language, and optional stack/database/authentication/deployment choices.
-3. **Analyse** the idea into structured requirements, users, constraints, edge cases, assumptions, and open questions.
-4. **Compose and validate** a 17-section prompt with the original idea preserved.
+3. **Generate** a concise 17-section prompt in one Gemini request (English or Tamil, depending on the selected output language).
+4. **Validate** the headings locally without making another model request.
 5. **Review and copy** the prompt from the results area.
 
 ## Requirements
@@ -45,7 +45,7 @@ Vite prints the local frontend URL, usually `http://localhost:5173`. The fronten
 Backend `backend/.env`:
 
 - `GEMINI_API_KEY` — required; obtain a key from Google AI Studio. Keep it on the server only.
-- `GEMINI_MODEL` — optional; defaults to `gemini-3.8-flash`.
+- `GEMINI_MODEL` — optional; defaults to `gemini-3.8-flash`. Generation uses the `low` thinking level for reduced latency.
 - `PORT` — optional; defaults to `5000`.
 - `CLIENT_ORIGIN` — comma-separated allowed frontend origins. Set this to your actual production frontend URL when deployed.
 - `TRUST_PROXY` — set to `1` only if the backend is behind one trusted reverse proxy; otherwise leave it at `0`.
@@ -83,7 +83,7 @@ Example request:
 }
 ```
 
-The response contains `result`, `analysis`, `validation`, and `model`.
+The response contains `result`, `analysis` (null in fast mode), `validation`, and `model`.
 
 ## Notes
 
