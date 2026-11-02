@@ -25,7 +25,7 @@ assert.equal(calls.length, 1, "fast mode must call Gemini once, not twice or thr
 assert.equal(out.validation.ok, true);
 assert.equal(out.analysis, null);
 assert.ok(calls[0].input.includes(idea), "original Tamil idea must be preserved in the model input");
-assert.ok(calls[0].system.includes("700-1,000 words"), "fast mode should request a concise prompt");
+assert.ok(calls[0].system.includes("450-700 words"), "fast mode should request a concise prompt");
 assert.ok(calls[0].system.includes("Cursor"), "selected target tool must affect the prompt");
 
 // 3) Fast mode uses Tamil output instructions when selected.
