@@ -99,14 +99,14 @@ function normalizeOptions(body = {}) {
  * Calls the Gemini REST API using Node's built-in fetch. This keeps tests for
  * the prompt pipeline independent of a network connection or API key.
  */
-async function generate({ system, input, schema, temperature = 0.3 }) {
+async function generate({ system, input, schema }) {
   if (!API_KEY) {
     const error = new Error("GEMINI_API_KEY is not configured on the backend.");
     error.status = 503;
     throw error;
   }
 
-  const generationConfig = { temperature };
+  // Gemini 3.8 Flash defaults to medium reasoning. LOW is intended for latency-sensitive requests.\n  const generationConfig = { thinkingConfig: { thinkingLevel: "low" } };
   if (schema) {
     generationConfig.responseMimeType = "application/json";
     generationConfig.responseSchema = schema;
