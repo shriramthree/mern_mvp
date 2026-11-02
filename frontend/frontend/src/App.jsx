@@ -44,7 +44,6 @@ function App() {
     setError("");
     setCopied(false);
     setIsGenerating(true);
-    const startedAt = Date.now();
     try {
       const { data } = await axios.post(`${API_URL}/api/generate`, {
         prompt,
@@ -58,7 +57,7 @@ function App() {
         skillLevel,
         purpose,
         outputLanguage,
-      });
+      }, { timeout: 65000 });
       if (typeof data.result !== "string" || !data.result.trim()) {
         throw new Error("The server returned an empty prompt. Please try again.");
       }
@@ -69,10 +68,8 @@ function App() {
       setResult("");
       setAnalysis(null);
       setValidation(null);
-      setError(err.response?.data?.error || err.message || "Could not reach the server. Check that the backend is running.");
+      setError(err.code === "ECONNABORTED" ? "Generation timed out. Please try again with a shorter idea." : (err.response?.data?.error || err.message || "Could not reach the server. Check that the backend is running."));
     } finally {
-      const remaining = Math.max(0, 2000 - (Date.now() - startedAt));
-      if (remaining > 0) await new Promise((resolve) => window.setTimeout(resolve, remaining));
       setIsGenerating(false);
     }
   };
@@ -309,7 +306,7 @@ function App() {
           {isGenerating ? (
             <span className="inline-flex items-center justify-center gap-2" role="status" aria-live="polite">
               <span className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />
-              Analysing your idea and building the prompt...
+              Generating your prompt (fast mode)...
             </span>
           ) : (
             "Generate"
