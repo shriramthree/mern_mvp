@@ -47,7 +47,7 @@ export function buildFastSystem(options = {}) {
     headings,
     "",
     "FAST-GENERATION RULES:",
-    "- Keep the complete prompt useful but concise. Aim for roughly 700-1,000 words, not a long essay.",
+    "- Keep the complete prompt useful but concise. Aim for roughly 450-700 words. Keep most sections to 1-3 concise bullets; use more bullets only where core features need them.",
     "- Preserve the user's actual requirements. Do not invent facts, names, budgets, services or credentials.",
     "- Separate explicitly requested features from useful inferred additions.",
     "- When the user says AI should decide, choose a sensible default and briefly explain why.",
