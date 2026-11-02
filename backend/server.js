@@ -120,6 +120,7 @@ async function generate({ system, input, schema }) {
         "Content-Type": "application/json",
         "x-goog-api-key": API_KEY,
       },
+      signal: AbortSignal.timeout(60_000),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: input }] }],
@@ -184,6 +185,9 @@ async function handleGenerate(req, res) {
     }
     if (status === 400 || status === 401 || status === 403) {
       return res.status(502).json({ error: "Gemini rejected the request. Check GEMINI_API_KEY and GEMINI_MODEL." });
+    }
+    if (status === 504 || error?.name === "TimeoutError" || error?.name === "AbortError") {
+      return res.status(504).json({ error: "Gemini took too long to respond. Please try again with a shorter idea." });
     }
     if (status === 503) {
       return res.status(503).json({ error: error.message || "Gemini is temporarily unavailable." });
