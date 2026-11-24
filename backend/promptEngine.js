@@ -152,7 +152,7 @@ export async function runDiscovery({ idea, options = {}, generate }) {
   ].join("\n");
   const raw = await generate({ system, input, schema: DISCOVERY_RESPONSE_SCHEMA });
   let parsed;
-  try { parsed = JSON.parse(String(raw || "").replace(/^```(?:json)?\\s*/i, "").replace(/\\s*```$/, "")); }
+  try { parsed = JSON.parse(String(raw || "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
   catch { throw new Error("The discovery model did not return valid JSON."); }
   const questions = cleanDiscoveryQuestions(parsed.questions);
   if (!questions.length) throw new Error("The discovery model did not return usable questions.");
