@@ -28,6 +28,7 @@ jobs:
         run: |
           node --check server.js
           node --check promptEngine.js
+          node --check nvidiaSkills.js
           node --check test/engine.test.js
 
       - name: Test prompt-engine pipeline (no API key required)
