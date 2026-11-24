@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import axios from "axios";
 
-const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+const LOCAL_HOST = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const API_URL = (import.meta.env.VITE_API_URL || (LOCAL_HOST ? "http://localhost:5000" : "")).replace(/\/+$/, "");
 const SELECT = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100";
 const PLATFORM_OPTIONS = ["Google AI Studio", "v0 by Vercel", "Claude", "Lovable", "Bolt.new", "Replit", "Firebase Studio", "Base44", "Emergent", "Create.xyz", "Tempo Labs", "GitHub Spark"];
 const ROLE_OPTIONS = ["Student", "Software Developer", "Founder / Entrepreneur", "Business Owner", "UI/UX Designer", "Digital Marketer", "Content Creator", "Researcher", "Educator", "Other professional"];
@@ -205,7 +206,7 @@ function App() {
       setAnalysis(null);
       setValidation(null);
       setSkillInfo(null);
-      setError(err.code === "ECONNABORTED" ? "Generation timed out. Try a shorter idea or try again." : (err.response?.data?.error || err.message || "Could not reach the prompt service. Check the backend URL and server status."));
+      setError(err.code === "ECONNABORTED" ? "Generation timed out. Try a shorter idea or try again." : (err.response?.data?.error || (!API_URL ? "The prompt backend is not connected to this Vercel deployment. Set VITE_API_URL to your deployed backend URL, then redeploy." : (err.message || "Could not reach the prompt service. Check the backend URL and server status."))));
     } finally {
       setIsGenerating(false);
     }
