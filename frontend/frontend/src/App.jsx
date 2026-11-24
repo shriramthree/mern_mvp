@@ -288,7 +288,7 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#fff7ed_0%,_#f8fafc_45%,_#eef2ff_100%)] px-4 py-8 text-slate-800 sm:py-12">
+    <main className="min-h-screen px-4 py-8 text-slate-800 sm:py-12" style={{ backgroundColor: "#f8fafc", backgroundImage: "radial-gradient(900px 520px at 8% 0%, rgba(251, 146, 60, 0.20), transparent 65%), radial-gradient(760px 500px at 100% 8%, rgba(129, 140, 248, 0.16), transparent 62%), radial-gradient(700px 440px at 50% 100%, rgba(251, 191, 36, 0.10), transparent 66%), linear-gradient(135deg, #fffaf5 0%, #f8fafc 52%, #f1f5ff 100%)", backgroundAttachment: "fixed" }}>
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 text-center">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/80 px-3 py-1.5 text-xs font-semibold tracking-wide text-orange-700 shadow-sm"><span className="h-2 w-2 rounded-full bg-orange-500" />INTELLIGENT PROMPT ARCHITECT</div>
